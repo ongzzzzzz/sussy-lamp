@@ -1,7 +1,7 @@
 // -------------------- FFT SETUP --------------------
 #include "arduinoFFT.h" 
-#define SAMPLES 64             //Must be a power of 2
-#define SAMPLING_FREQUENCY 1000 //Hz, must be less than 10000 due to ADC
+#define SAMPLES 256             //Must be a power of 2
+#define SAMPLING_FREQUENCY 40000 //Hz, must be less than 50000 due to ADC
  
 arduinoFFT FFT = arduinoFFT();
  
@@ -31,9 +31,9 @@ String notes[] { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
 int freqLength = sizeof frequencies / sizeof frequencies[0];
 
 // -------------------- RGB LED --------------------
-#define R_PIN 6
-#define G_PIN 5
-#define B_PIN 3
+#define R_PIN 14 // D5
+#define G_PIN 12 // D6
+#define B_PIN 13 // D7
 byte color[] { 0, 0, 0 };
 double h;
 
@@ -47,6 +47,7 @@ void setup() {
     }
     // Clear the buffer
     display.clearDisplay();
+    display.setRotation(2);
  
     sampling_period_us = round(1000000*(1.0/SAMPLING_FREQUENCY));
 
@@ -120,7 +121,7 @@ String findFrequency(float freq) {
   double diff = frequencies[closestIndex];
   
   for (int i=0; i<freqLength; i++) {
-    diff = min(abs(frequencies[i]-freq), diff);
+    diff = (abs(frequencies[i]-freq) < diff) ? abs(frequencies[i]-freq) : diff;
     if (diff == abs(frequencies[i]-freq)) {
       closestIndex = i;
     }
