@@ -19,6 +19,7 @@ double peak;
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "bmp.h"
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
@@ -31,12 +32,13 @@ float frequencies[] { 130.8, 138.6, 146.8, 155.6, 164.8, 174.6, 185.0, 196.0, 20
 String notes[] { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 int freqLength = sizeof frequencies / sizeof frequencies[0];
 
-#define MAX_AMPLITUDE 500
+#define AMP_THRESH 500
 #define NOISE_THRESH 200
 #define NUM_BANDS 128
 int bands[NUM_BANDS];
 int band_width = 128 / NUM_BANDS;
 int influence_thresh = (int)((SAMPLES / 2) / NUM_BANDS);
+int max_amp = 0;
 
 
 // -------------------- RGB LED --------------------
@@ -216,38 +218,55 @@ void loop() {
 
     int curr_band = (int)(i / influence_thresh) - 1;
     bands[curr_band] += vReal[i] / influence_thresh;
+    max_amp = vReal[i] > max_amp ? vReal[i] : max_amp;
   }
 
-  display.clearDisplay();
-  for (int j = 0; j < NUM_BANDS; j++) {
-    bands[j] = (int)map(bands[j], 0, MAX_AMPLITUDE, 0, 32);
-    display.drawRect(j * band_width, 32, band_width, -bands[j], SSD1306_WHITE);
+//  if nothing has an amplitude more than NOISE_THRESH
+  if (max_amp < NOISE_THRESH) {
+
+    display.clearDisplay();
+    display.drawBitmap(
+      (display.width()  - BMP_WIDTH ) / 2,
+      (display.height() - BMP_HEIGHT) / 2,
+      bmp_open, BMP_WIDTH, BMP_HEIGHT, 1);
+    display.display();
+    
+    digitalWrite(R_PIN, HIGH);
+    digitalWrite(G_PIN, HIGH);
+    digitalWrite(B_PIN, HIGH);
+  } else {
+    display.clearDisplay();
+    for (int j = 0; j < NUM_BANDS; j++) {
+      bands[j] = (int)map(bands[j], 0, AMP_THRESH, 0, 32);
+      display.drawRect(j * band_width, 32, band_width, -bands[j], SSD1306_WHITE);
+    }
+    display.display();
+
+    dtostrf(peak, 10, 2, peakString);
+    display.setCursor(64, 0);
+    display.write(peakString);
+    display.write(" ");
+
+    // transform frequency into 3rd octave
+    while (peak < frequencies[0]) peak *= 2.0;
+    while (peak > frequencies[freqLength - 1]) peak *= 0.5;
+    //  display.setCursor(64, 10);
+    //  display.write(findFrequency(peak).c_str());
+    display.display();
+
+    h = map(peak, frequencies[0], frequencies[freqLength - 1], 0, 360);
+    hslToRgb(h, 1.0, 0.5, color);
+
+    analogWrite(R_PIN, 255 - color[0]);
+    analogWrite(G_PIN, 255 - color[1]);
+    analogWrite(B_PIN, 255 - color[2]);
+
+    //  pride();
+    updateLEDs();
+    FastLED.show();
   }
-  display.display();
 
-  dtostrf(peak, 10, 2, peakString);
-  display.setCursor(64, 0);
-  display.write(peakString);
-  display.write(" ");
-
-  // transform frequency into 3rd octave
-  while (peak < frequencies[0]) peak *= 2.0;
-  while (peak > frequencies[freqLength - 1]) peak *= 0.5;
-  display.setCursor(64, 10);
-  display.write(findFrequency(peak).c_str());
-  display.display();
-
-  h = map(peak, frequencies[0], frequencies[freqLength - 1], 0, 360);
-  hslToRgb(h, 1.0, 0.5, color);
-
-  analogWrite(R_PIN, 255 - color[0]);
-  analogWrite(G_PIN, 255 - color[1]);
-  analogWrite(B_PIN, 255 - color[2]);
-
-  //  pride();
-  updateLEDs();
-  FastLED.show();
-
+  max_amp = 0;
   delay(1);
 }
 
@@ -293,7 +312,7 @@ void hslToRgb(double h, double s, double l, byte rgb[]) {
 }
 
 void updateLEDs() {
-  for (int i=0; i<NUM_LEDS; i++){
+  for (int i = 0; i < NUM_LEDS; i++) {
     leds[i].setRGB(color[0], color[1], color[2]);
   }
 }
