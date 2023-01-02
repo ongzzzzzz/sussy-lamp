@@ -1,7 +1,7 @@
 // -------------------- FFT SETUP --------------------
 #include "arduinoFFT.h"
 #define SAMPLES 256             //Must be a power of 2
-#define SAMPLING_FREQUENCY 50000 //Hz, must be less than 50000 due to ADC
+#define SAMPLING_FREQUENCY 10000 //Hz, must be less than 10000 due to ADC
 
 arduinoFFT FFT = arduinoFFT();
 
